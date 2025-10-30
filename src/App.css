@@ -1,0 +1,262 @@
+#root {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #0f172a;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.app-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 2.5rem;
+}
+
+.app-header p {
+  margin: 0.25rem 0 0;
+  color: #475569;
+}
+
+.app-main {
+  display: flex;
+  gap: 2.5rem;
+  align-items: flex-start;
+}
+
+.board-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.game-canvas {
+  background: #fff;
+  border: 1px solid #cbd5f5;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.side-panel {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.hud {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.hud-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.hud-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.hud-value {
+  display: block;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #0f172a;
+}
+
+.hud-message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #b91c1c;
+}
+
+.hud-message.success {
+  color: #0f766e;
+  margin-top: 0.5rem;
+}
+
+.controls {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  display: grid;
+  gap: 1rem;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.control-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.control-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+}
+
+.controls input,
+.controls select,
+.controls textarea {
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5f5;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.controls textarea {
+  resize: vertical;
+}
+
+.primary {
+  padding: 0.7rem 1.25rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(59, 130, 246, 0.25);
+}
+
+.secondary {
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid #94a3b8;
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.secondary:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 20;
+}
+
+.modal {
+  max-width: 520px;
+  width: 100%;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-body {
+  padding: 1.25rem 1.5rem;
+  color: #1f2937;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.modal-footer {
+  padding: 1rem 1.5rem 1.5rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.icon-button:hover {
+  color: #0f172a;
+}
+
+.rules-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+@media (max-width: 960px) {
+  #root {
+    padding: 1.5rem;
+  }
+
+  .app-main {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .side-panel {
+    width: 100%;
+  }
+
+  .board-container {
+    order: -1;
+  }
+
+  .game-canvas {
+    width: 100%;
+    height: auto;
+  }
+}
