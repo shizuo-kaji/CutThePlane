@@ -24,13 +24,9 @@ A planning document for implementing a browser‑playable version of the Plane D
 ### 2.2 UI/UX
 - Canvas‑based board rendering (pixel‑perfect grid). Hover previews showing the candidate line through the hovered pair of lattice points (or one point + direction gizmo).
 - Clear status bar: current player, move number, current room count \(C_n\), target \(M\).
+- Modal overlays: Help dialog (implemented) and Game Over dialog that announces the loser and offers a restart (implemented).
 - Minimal controls: New Game, Set \(M\), Choose admissible directions \(\mathcal{P}\) (from presets), Undo (illegal‑move rollback only), Help.
 - Accessibility: keyboard navigation for lattice selection; high‑contrast mode.
-
-### 2.3 Performance & Quality
-- Board sizes up to 61×61 lattice comfortably at 60 FPS on typical laptops.
-- Region counting in \(< 20\,\text{ms}\) per move for MVP board sizes.
-- Deterministic results; reproducible seeds for AI/self‑play.
 
 ---
 
@@ -73,6 +69,7 @@ A planning document for implementing a browser‑playable version of the Plane D
 
 ### E. **Counting Agent**
 - Maintains region count efficiently (incremental preferred; fallback to full recompute).
+- Current implementation builds planar graph (board boundary + clipped line segments) and uses Euler characteristic to compute \(C_n\) on each move.
 - Exposes `countRooms(lines, board)` returning \(C_n\).
 
 ### F. **AI Agent (Future)**
@@ -98,20 +95,12 @@ A planning document for implementing a browser‑playable version of the Plane D
 ---
 
 ## 6. Region Counting Strategy
-Two implementable approaches; begin with (A), keep (B) as stretch for speed.
+- Clip every line to the board, add intersections, and treat the arrangement as a planar graph.
+- Use Euler characteristic \(F = E - V + C\) (faces = rooms) with components from flood fill over the graph.
+- Pros: Exact count for arbitrary admissible directions; scales with number of lines rather than board area.
+- Cons: Rebuilds the full arrangement each move; optimise later by tracking incremental changes.
 
-**(A) Cell‑Graph Flood Fill (MVP):**
-- Model each unit cell as a node; edges between cells are removed where a drawn line passes exactly along the shared boundary.
-- Identify connected components with BFS/DFS; \(C_n\) = number of connected cell components.
-- Pros: Robust on grid; integer arithmetic; simple to reason about.
-- Cons: Memory \(\sim O(N^2)\) for \(N\times N\) grid; but fine for \(\le 100\) per side.
-
-**(B) Planar Subdivision via Half‑Edges:**
-- Maintain vertices (line intersections), half‑edges (maximal segments between intersections/boundary), and faces; update incrementally per line.
-- Pros: Exact face count; supports arbitrary \(\mathcal{P}\).
-- Cons: Complex; higher engineering effort.
-
-**Optimisation:** Incremental updates by only re‑filling components cut by the new line (track AoI via line rasterisation).
+**Optimisation:** Explore incremental updates by only re‑computing affected segments/vertices per new line.
 
 ---
 
@@ -165,3 +154,11 @@ interface GameState {
 - **Heuristics:** penalise moves with large expected \(\Delta C\); reward centre‑preserving lines; prefer balancing orientations.
 - **Threat detection:** compute upper bounds on rooms added by a candidate line (fast grid heuristic).
 - **Search:** random playouts with approximate counting; later MCTS with rollout policies; caching by `(lines set, P, size)` hash (Zobrist‑style).
+
+---
+
+## 12. Current Status (GitHub Pages MVP)
+- Local hot‑seat gameplay, move validation, and region counting are implemented in TypeScript with Zustand state management.
+- UI includes HUD, controls, Help modal, and newly added Game Over modal plus footer link to the GitHub repository.
+- GitHub Actions workflow builds with Vite and deploys to GitHub Pages (`https://shizuo-kaji.github.io/CutThePlane/`).
+- Remaining MVP gaps: keyboard accessibility, illegal‑move undo history, custom presets UI polish, and performance optimisations for large boards.

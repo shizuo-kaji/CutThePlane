@@ -4,6 +4,8 @@ A browser-based implementation of the Planar Division Game. Players alternate dr
 
 ## Getting Started
 
+[Play online](https://shizuo-kaji.github.io/CutThePlane/) or run locally:
+
 ```bash
 npm install
 npm run dev
