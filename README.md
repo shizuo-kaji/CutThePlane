@@ -1,6 +1,6 @@
 # Cut the Plane!
 
-A browser-based implementation of the Planar Division Game described in `agents.md`. Players alternate drawing maximal lines on a lattice board; the player whose move causes the number of regions to reach the target loses.
+A browser-based implementation of the Planar Division Game. Players alternate drawing maximal lines on a lattice board; the player whose move causes the number of regions to reach the target loses.
 
 ## Getting Started
 
