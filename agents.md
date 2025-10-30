@@ -72,10 +72,14 @@ A planning document for implementing a browser‑playable version of the Plane D
 - Current implementation builds planar graph (board boundary + clipped line segments) and uses Euler characteristic to compute \(C_n\) on each move.
 - Exposes `countRooms(lines, board)` returning \(C_n\).
 
-### F. **AI Agent (Future)**
-- **Level 1:** Greedy heuristics (avoid high room creation; block opponent threats; favour symmetry).
+### F. **AI Agent**
+- **Level 1 (implemented):** Alpha–beta search (depth 3 by default) over a pruned set of high-leverage candidate lines, using heuristic evaluation based on remaining room headroom.
 - **Level 2:** Monte Carlo playouts with fast approximate counting.
 - **Level 3:** MCTS with learned priors over directions/placements.
+
+**Parameterisation Notes:**
+- Depth and branching cap (`MAX_BRANCHING_FACTOR`) live in `src/ai/greedy.ts`; increase for stronger play at the cost of responsiveness.
+- Random tie-breaking keeps automated mirror matches varied while preserving deterministic evaluation ordering.
 
 ### G. **Net/Sync Agent (Future)**
 - Manages online lobbies, turn order, and conflict resolution.
@@ -159,6 +163,7 @@ interface GameState {
 
 ## 12. Current Status (GitHub Pages MVP)
 - Local hot‑seat gameplay, move validation, and region counting are implemented in TypeScript with Zustand state management.
-- UI includes HUD, controls, Help modal, and newly added Game Over modal plus footer link to the GitHub repository.
+- UI includes HUD, controls, player panel with current indicator and AI toggles, Help modal, and Game Over modal plus footer link to the GitHub repository.
+- Alpha–beta AI opponent (depth-3, heuristic pruning) can be toggled per player seat; automatically performs moves when it is that player’s turn.
 - GitHub Actions workflow builds with Vite and deploys to GitHub Pages (`https://shizuo-kaji.github.io/CutThePlane/`).
 - Remaining MVP gaps: keyboard accessibility, illegal‑move undo history, custom presets UI polish, and performance optimisations for large boards.

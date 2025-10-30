@@ -65,6 +65,66 @@
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
+.player-panel {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.player-card {
+  flex: 1;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.player-card.is-current {
+  border-color: #2563eb;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.18);
+}
+
+.player-card.is-loser {
+  border-color: #b91c1c;
+}
+
+.player-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.player-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.player-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+}
+
+.player-badge.loser {
+  background: #b91c1c;
+}
+
+.player-ai-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
 .hud-row {
   display: flex;
   justify-content: space-between;

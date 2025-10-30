@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { applyMove, createInitialState } from '../core';
-import type { Direction, GameConfig, GameState, Move, Point } from '../core';
+import type { Direction, GameConfig, GameState, Move, PlayerIndex, Point } from '../core';
 import { normalizeDirection } from '../geom';
+import { chooseBestMove } from '../ai/greedy';
 
 type DirectionPresetKey = 'orthogonal' | 'orthogonal-diagonals' | 'custom';
 
@@ -26,6 +27,7 @@ interface GameStoreState {
   message: string | null;
   preset: DirectionPresetKey;
   customDirectionsText: string;
+  aiPlayers: [boolean, boolean];
   setSelected(point: Point): void;
   clearSelection(): void;
   handlePoint(point: Point): void;
@@ -34,6 +36,8 @@ interface GameStoreState {
   updateBoardSize(size: number): void;
   setPreset(preset: DirectionPresetKey): void;
   setCustomDirectionsText(text: string): void;
+  setAiPlayer(player: PlayerIndex, enabled: boolean): void;
+  requestAiMove(): void;
 }
 
 function pointsEqual(a: Point | null, b: Point | null): boolean {
@@ -90,6 +94,7 @@ export const useGameStore = create<GameStoreState>((set, get) => {
     message: null,
     preset: initial.preset,
     customDirectionsText: initial.customDirectionsText,
+    aiPlayers: [false, false],
     setSelected(point) {
       const current = get().selected;
       if (pointsEqual(current, point)) {
@@ -107,7 +112,10 @@ export const useGameStore = create<GameStoreState>((set, get) => {
       set({ selected: null });
     },
     handlePoint(point) {
-      const { selected, game } = get();
+      const { selected, game, aiPlayers } = get();
+      if (aiPlayers[game.turn]) {
+        return;
+      }
       if (!selected) {
         set({ selected: { ...point }, message: null });
         return;
@@ -211,6 +219,50 @@ export const useGameStore = create<GameStoreState>((set, get) => {
         game: createInitialState(config),
         selected: null,
         message: null,
+      });
+    },
+    setAiPlayer(player, enabled) {
+      set((state) => {
+        if (state.aiPlayers[player] === enabled) {
+          return {};
+        }
+        const next = [...state.aiPlayers] as [boolean, boolean];
+        next[player] = enabled;
+        return {
+          aiPlayers: next,
+          selected:
+            enabled && state.game.turn === player ? null : state.selected,
+          message:
+            enabled && state.game.turn === player ? null : state.message,
+        };
+      });
+    },
+    requestAiMove() {
+      set((state) => {
+        if (state.game.status !== 'playing') {
+          return {};
+        }
+        if (!state.aiPlayers[state.game.turn]) {
+          return {};
+        }
+        const decision = chooseBestMove(state.game);
+        if (!decision) {
+          const loser = state.game.turn;
+          return {
+            game: {
+              ...state.game,
+              status: 'finished',
+              loser,
+            },
+            selected: null,
+            message: `Player ${loser + 1} has no legal moves.`,
+          };
+        }
+        return {
+          game: decision.nextState,
+          selected: null,
+          message: null,
+        };
       });
     },
   };

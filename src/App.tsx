@@ -12,6 +12,9 @@ function App() {
   const [showGameOver, setShowGameOver] = useState(false)
   const game = useGameStore((state) => state.game)
   const startNewGame = useGameStore((state) => state.startNewGame)
+  const aiPlayer1 = useGameStore((state) => state.aiPlayers[0])
+  const aiPlayer2 = useGameStore((state) => state.aiPlayers[1])
+  const requestAiMove = useGameStore((state) => state.requestAiMove)
 
   useEffect(() => {
     if (game.status === 'finished') {
@@ -20,6 +23,10 @@ function App() {
       setShowGameOver(false)
     }
   }, [game.status])
+
+  useEffect(() => {
+    requestAiMove()
+  }, [game.turn, game.status, aiPlayer1, aiPlayer2, requestAiMove])
 
   const handleRestart = () => {
     startNewGame()

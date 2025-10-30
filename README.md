@@ -2,6 +2,14 @@
 
 A browser-based implementation of the Planar Division Game. Players alternate drawing maximal lines on a lattice board; the player whose move causes the number of regions to reach the target loses.
 
+## Features
+
+- Interactive canvas board with lattice snapping and preview lines.
+- Real-time room counting and status HUD with player cards.
+- Toggleable AI opponents that search with alpha–beta pruning (depth 3) and heuristic move ordering.
+- In-app Help modal and post-game dialog with restart controls.
+- Deployed to GitHub Pages for quick sharing.
+
 ## Getting Started
 
 [Play online](https://shizuo-kaji.github.io/CutThePlane/) or run locally:
@@ -21,6 +29,12 @@ The dev server runs on Vite with hot module reload. Use the on-screen controls t
 4. After every legal move the game recomputes the number of rooms—connected open regions of the board. If your move pushes the room count to or beyond the target value `M`, you lose immediately.
 
 Use the Help button in the app header to display these rules in-game along with a quick summary of the available controls.
+
+## Playing Against the AI
+
+Toggle the “AI” checkbox in the player panel to hand control of that seat to the built-in opponent. The agent searches up to three plies deep with alpha–beta pruning, evaluating a curated set of promising lines (those that keep headroom before hitting the target `M`). If both seats are set to AI the bots will play each other automatically; a little randomness is introduced when several moves score identically.
+
+You can experiment with the search strength by editing `MAX_BRANCHING_FACTOR` or the default `depth` parameter in `src/ai/greedy.ts`. Deeper searches become exponentially more expensive, so increase them cautiously for larger boards.
 
 ## Testing & Builds
 
