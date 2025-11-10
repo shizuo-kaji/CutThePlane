@@ -28,6 +28,7 @@ interface GameStoreState {
   preset: DirectionPresetKey;
   customDirectionsText: string;
   aiPlayers: [boolean, boolean];
+  showMoveIndices: boolean;
   setSelected(point: Point): void;
   clearSelection(): void;
   handlePoint(point: Point): void;
@@ -38,6 +39,7 @@ interface GameStoreState {
   setCustomDirectionsText(text: string): void;
   setAiPlayer(player: PlayerIndex, enabled: boolean): void;
   requestAiMove(): void;
+  setShowMoveIndices(value: boolean): void;
 }
 
 function pointsEqual(a: Point | null, b: Point | null): boolean {
@@ -95,6 +97,7 @@ export const useGameStore = create<GameStoreState>((set, get) => {
     preset: initial.preset,
     customDirectionsText: initial.customDirectionsText,
     aiPlayers: [false, false],
+    showMoveIndices: false,
     setSelected(point) {
       const current = get().selected;
       if (pointsEqual(current, point)) {
@@ -264,6 +267,9 @@ export const useGameStore = create<GameStoreState>((set, get) => {
           message: null,
         };
       });
+    },
+    setShowMoveIndices(value) {
+      set({ showMoveIndices: value });
     },
   };
 });

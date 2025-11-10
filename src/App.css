@@ -185,7 +185,7 @@
   color: #475569;
 }
 
-.controls input,
+.controls input:not([type='checkbox']),
 .controls select,
 .controls textarea {
   padding: 0.55rem 0.75rem;
@@ -197,6 +197,21 @@
 
 .controls textarea {
   resize: vertical;
+}
+
+.control-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.control-checkbox input[type='checkbox'] {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+  accent-color: #2563eb;
 }
 
 .primary {

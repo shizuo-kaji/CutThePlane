@@ -62,9 +62,12 @@ function RuleText(): ReactNode {
       </ol>
       <p>
         Each line increases the number of rooms (connected open regions). If your move pushes the
-        room count to or beyond the target value <code>M</code>, you immediately lose.
+        room count to or beyond the target room count <code>M</code>, you immediately lose.
       </p>
-      <p>Use the presets or custom direction list to change the allowable slopes, and adjust M to vary difficulty.</p>
+      <p>
+        Use the admissible direction presets or custom direction list to change the allowable slopes,
+        and adjust the target room count to vary difficulty.
+      </p>
     </>
   );
 }

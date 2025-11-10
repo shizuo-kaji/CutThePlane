@@ -10,6 +10,8 @@ export function Controls() {
   const updateTargetRooms = useGameStore((state) => state.updateTargetRooms);
   const setPreset = useGameStore((state) => state.setPreset);
   const setCustomDirectionsText = useGameStore((state) => state.setCustomDirectionsText);
+  const showMoveIndices = useGameStore((state) => state.showMoveIndices);
+  const setShowMoveIndices = useGameStore((state) => state.setShowMoveIndices);
 
   const handleSizeChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
@@ -30,6 +32,10 @@ export function Controls() {
     setPreset(value);
   };
 
+  const handleMoveIndexToggle = (event: ChangeEvent<HTMLInputElement>) => {
+    setShowMoveIndices(event.target.checked);
+  };
+
   return (
     <section className="controls">
       <div className="control-group">
@@ -47,7 +53,7 @@ export function Controls() {
       </div>
       <div className="control-group">
         <label className="control-label" htmlFor="target-rooms">
-          Target M
+          Target Room Count
         </label>
         <input
           id="target-rooms"
@@ -59,7 +65,7 @@ export function Controls() {
       </div>
       <div className="control-group">
         <label className="control-label" htmlFor="direction-preset">
-          Directions
+          Admissible Directions
         </label>
         <select id="direction-preset" value={preset} onChange={handlePresetChange}>
           <option value="orthogonal">Orthogonal</option>
@@ -81,6 +87,18 @@ export function Controls() {
           />
         </div>
       ) : null}
+      <div className="control-group">
+        <span className="control-label">Board Labels</span>
+        <label className="control-checkbox" htmlFor="show-move-indices">
+          <input
+            id="show-move-indices"
+            type="checkbox"
+            checked={showMoveIndices}
+            onChange={handleMoveIndexToggle}
+          />
+          Show
+        </label>
+      </div>
       <button type="button" className="primary" onClick={startNewGame}>
         New Game
       </button>
