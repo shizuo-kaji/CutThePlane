@@ -16,11 +16,12 @@ The dev server runs on Vite with hot module reload. Use the on-screen controls t
 ## Rules of Play
 
 1. Players alternate turns. On your turn pick a lattice point on the grid as the start of your line.
-2. Pick a second lattice point that lies in one of the admissible directions shown in the controls (or the Help overlay). The game automatically extends the line through both points to its maximal length within the board bounds.
-3. Illegal selections (duplicate lines, boundary-parallel lines, or directions not in the admissible set) are rejected and the turn stays with the current player.
-4. After every legal move the game recomputes the number of rooms—connected open regions of the board. If your move pushes the room count to or beyond the target value, you lose immediately.
+2. Pick a second lattice point that lies in one of the admissible directions shown in the controls. The game automatically extends the line through both points to its maximal length within the board bounds.
+3. Clicking the the first point again cancels your selection.
+4. Illegal selections (duplicate lines, boundary-parallel lines, or directions not in the admissible set) are rejected and the turn stays with the current player.
+5. After every legal move the game recomputes the number of rooms—connected regions of the board. If your move pushes the room count to or beyond the target value, you lose immediately.
 
-Use the Help button in the app header to display these rules in-game along with a quick summary of the available controls.
+Use the Help button in the app header to display these rules.
 
 ## Playing Against the AI
 
