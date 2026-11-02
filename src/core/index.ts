@@ -1,3 +1,4 @@
 export * from './types';
 export * from './state';
-export { countRooms } from './counting';
+export * from './counting';
+export * from './candidates';

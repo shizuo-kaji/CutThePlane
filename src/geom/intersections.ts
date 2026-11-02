@@ -1,9 +1,21 @@
 import type { Line, Point } from '../core/types';
-import { normalFromDirection } from './lines';
+import { gcd, normalFromDirection } from './lines';
 import type { Segment } from './segment';
 import { pointOnSegment } from './segment';
 
 const EPS = 1e-9;
+
+/** Exact identity of an intersection of integer lattice lines, including off-board points. */
+export function intersectionKey(a: Line, b: Line): string | null {
+  const na = normalFromDirection(a.direction);
+  const nb = normalFromDirection(b.direction);
+  const d = na.dx * nb.dy - na.dy * nb.dx;
+  if (d === 0) return null;
+  const x = na.dy * b.c - nb.dy * a.c;
+  const y = nb.dx * a.c - na.dx * b.c;
+  const divisor = gcd(gcd(x, y), d) * Math.sign(d);
+  return `${x / divisor},${y / divisor},${d / divisor}`;
+}
 
 export function intersectLines(lineA: Line, lineB: Line): Point | null {
   const nA = normalFromDirection(lineA.direction);

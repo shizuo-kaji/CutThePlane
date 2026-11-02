@@ -22,6 +22,11 @@ export interface GameConfig {
   size: number;
   directions: Direction[];
   targetRooms: number;
+  scoring: 'board' | 'plane';
+  rule: 'avoidance' | 'race';
+  allowTriplePoints: boolean;
+  /** Shared by both players; omitted direction keys have unlimited capacity. */
+  capacities: Record<string, number> | null;
 }
 
 export interface GameState {
@@ -32,6 +37,8 @@ export interface GameState {
   moveNumber: number;
   status: 'playing' | 'finished';
   loser: PlayerIndex | null;
+  winner: PlayerIndex | null;
+  endReason: 'threshold' | 'capacity' | 'no_moves' | null;
 }
 
 export interface Move {
@@ -51,6 +58,8 @@ export interface MoveError {
     | 'duplicate_line'
     | 'line_out_of_bounds'
     | 'line_matches_boundary'
+    | 'triple_point'
+    | 'capacity_reached'
     | 'game_finished';
   message: string;
 }

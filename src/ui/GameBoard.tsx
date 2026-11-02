@@ -1,357 +1,187 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createLineFromPoints, intersectSegments } from '../geom';
-import { useGameStore } from '../hooks/useGameStore';
-import { boardToCanvas, clamp, snapToLattice } from './boardMath';
+import type { KeyboardEvent, PointerEvent } from 'react';
+import { applyMove, directionKey, directionUsage, moveFromAnchor } from '../core';
+import type { Move, Point } from '../core';
+import { createLineFromPoints, intersectLines, intersectionKey } from '../geom';
 import { clipLineToBox } from '../geom/clipping';
-import type { Point } from '../core';
+import { useGameStore } from '../hooks/useGameStore';
+import { boardViewport, canvasToWorld, clamp, clipToViewport, fitViewport, roomPolygons, snapToLattice, worldToCanvas } from './boardMath';
+import { DirectionIcon, directionLabel } from './DirectionIcon';
 
-const PLAYER_COLORS = ['#e74c3c', '#3498db'];
-const GRID_COLOR = '#d0d7de';
-const AXIS_COLOR = '#adb5bd';
-const BACKGROUND_COLOR = '#f9fbfc';
-const LINE_WIDTH = 2;
-const PREVIEW_COLOR = '#2ecc71';
-const SELECTION_COLOR = '#f39c12';
-const BOARD_PIXEL_SIZE = 600;
-const LABEL_STROKE = 'rgba(255,255,255,0.9)';
-const LABEL_FONT_FALLBACK = 'Inter, system-ui, sans-serif';
-const LABEL_OFFSET = 16;
-const LABEL_MARGIN = 12;
-const INTERSECTION_COLOR = '#111827';
-const INTERSECTION_STROKE = '#ffffff';
-const INTERSECTION_RADIUS = 5;
+const COLORS = ['#c75b37', '#3477a5'];
+const SHADES = ['#eef3e9', '#f6f0dd', '#eaf1f4', '#f4eae3', '#f5f4ee'];
 
-interface RenderSegment {
-  a: Point;
-  b: Point;
-  lineIndex: number;
-}
-
-export function GameBoard({ pixelSize = BOARD_PIXEL_SIZE }: { pixelSize?: number }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const game = useGameStore((state) => state.game);
-  const selected = useGameStore((state) => state.selected);
-  const handlePoint = useGameStore((state) => state.handlePoint);
-  const clearSelection = useGameStore((state) => state.clearSelection);
-  const showMoveIndices = useGameStore((state) => state.showMoveIndices);
+export function GameBoard() {
+  const game = useGameStore((s) => s.game);
+  const selected = useGameStore((s) => s.selected);
+  const message = useGameStore((s) => s.message);
+  const aiPlayers = useGameStore((s) => s.aiPlayers);
+  const thinking = useGameStore((s) => s.aiThinking);
+  const showLabels = useGameStore((s) => s.showMoveIndices);
+  const showRegions = useGameStore((s) => s.showRegions);
+  const handlePoint = useGameStore((s) => s.handlePoint);
+  const playMove = useGameStore((s) => s.playMove);
+  const clearSelection = useGameStore((s) => s.clearSelection);
+  const setLabels = useGameStore((s) => s.setShowMoveIndices);
+  const setRegions = useGameStore((s) => s.setShowRegions);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const press = useRef<Point | null>(null);
+  const [pixels, setPixels] = useState(600);
   const [hover, setHover] = useState<Point | null>(null);
+  const [keyboardPoint, setKeyboardPoint] = useState<Point>({ x: Math.floor(game.config.size / 2), y: Math.floor(game.config.size / 2) });
+  const [direction, setDirection] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'fit' | 'board'>('fit');
+  const [keyboardActive, setKeyboardActive] = useState(false);
+  const { size, scoring } = game.config;
+  const interactive = game.status === 'playing' && !aiPlayers[game.turn];
+  const activeDirection = game.config.directions.find((d) => directionKey(d) === direction);
+  const cursor = hover ?? (keyboardActive ? keyboardPoint : null);
+  const view = useMemo(() => scoring === 'plane' && viewMode === 'fit' ? fitViewport(size, game.lines) : boardViewport(size), [scoring, size, viewMode, game.lines]);
+  const polygons = useMemo(() => showRegions ? roomPolygons(game.lines, scoring === 'board' ? { minX: 0, minY: 0, size } : view) : [], [showRegions, game.lines, scoring, size, view]);
+  const move = useMemo<Move | null>(() => {
+    if (!interactive || !cursor) return null;
+    if (activeDirection) return moveFromAnchor(cursor, activeDirection, size);
+    return selected && (selected.x !== cursor.x || selected.y !== cursor.y) ? { a: selected, b: cursor } : null;
+  }, [interactive, cursor, selected, activeDirection, size]);
+  const preview = useMemo(() => move ? applyMove(game, move, false) : null, [game, move]);
+  const dangerous = !!preview && !preview.error && preview.state.winner !== null && preview.state.winner !== game.turn;
+  const wins = !!preview && !preview.error && preview.state.winner === game.turn;
+  const previewColor = preview?.error ? '#b74735' : dangerous ? '#b27918' : '#28765c';
 
-  const size = game.config.size;
-
-  const segments = useMemo<RenderSegment[]>(() => {
-    return game.lines
-      .map((line, index) => {
-        const clipped = clipLineToBox(line, size);
-        return clipped ? { ...clipped, lineIndex: index } : null;
-      })
-      .filter((segment): segment is RenderSegment => Boolean(segment));
-  }, [game.lines, size]);
-
-  const intersections = useMemo<Point[]>(() => {
-    if (!showMoveIndices || segments.length < 3) {
-      return [];
-    }
-    const map = new Map<string, { point: Point; lines: Set<number> }>();
-    for (let i = 0; i < segments.length; i += 1) {
-      for (let j = i + 1; j < segments.length; j += 1) {
-        const point = intersectSegments(segments[i], segments[j]);
-        if (!point) {
-          continue;
-        }
-        const key = `${point.x.toFixed(4)},${point.y.toFixed(4)}`;
-        let entry = map.get(key);
-        if (!entry) {
-          entry = { point, lines: new Set<number>() };
-          map.set(key, entry);
-        }
-        entry.lines.add(segments[i].lineIndex);
-        entry.lines.add(segments[j].lineIndex);
-      }
-    }
-    return Array.from(map.values())
-      .filter((entry) => entry.lines.size > 2)
-      .map((entry) => entry.point);
-  }, [segments, showMoveIndices]);
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const observer = new ResizeObserver(([entry]) => setPixels(Math.max(200, Math.round(entry.contentRect.width))));
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(pixels * dpr); canvas.height = Math.round(pixels * dpr);
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = '#fcfbf6'; ctx.fillRect(0, 0, pixels, pixels);
+    const xy = (p: Point) => worldToCanvas(p, view, pixels);
+    for (const [index, polygon] of polygons.entries()) {
+      ctx.beginPath();
+      polygon.forEach((p, i) => { const c = xy(p); if (!i) ctx.moveTo(c.x, c.y); else ctx.lineTo(c.x, c.y); });
+      ctx.closePath(); ctx.fillStyle = SHADES[index % SHADES.length]; ctx.fill();
     }
-    const context = canvas.getContext('2d');
-    if (!context) {
-      return;
+    const cell = pixels / view.size;
+    // Only original-board lattice points are selectable. Do not imply otherwise after fitting.
+    ctx.strokeStyle = '#dfe3da'; ctx.lineWidth = 0.7;
+    for (let n = 0; n <= size; n++) {
+      const a = xy({ x: n, y: 0 }), b = xy({ x: n, y: size });
+      const c = xy({ x: 0, y: n }), d = xy({ x: size, y: n });
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.moveTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.stroke();
     }
-    const dpr = window.devicePixelRatio ?? 1;
-    canvas.style.width = `${pixelSize}px`;
-    canvas.style.height = `${pixelSize}px`;
-    canvas.width = pixelSize * dpr;
-    canvas.height = pixelSize * dpr;
-    context.save();
-    context.scale(dpr, dpr);
-    drawBoard(
-      context,
-      pixelSize,
-      size,
-      segments,
-      selected,
-      hover,
-      showMoveIndices,
-      intersections,
-    );
-    context.restore();
-  }, [pixelSize, size, segments, selected, hover, showMoveIndices, intersections]);
-
-  const handlePointerMove: React.PointerEventHandler<HTMLCanvasElement> = (event) => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-    const rect = canvas.getBoundingClientRect();
-    const relX = (event.clientX - rect.left) / rect.width;
-    const relY = (event.clientY - rect.top) / rect.height;
-    const boardX = clamp(relX, 0, 1) * size;
-    const boardY = clamp(1 - relY, 0, 1) * size;
-    const snapped = snapToLattice(boardX, boardY, size);
-    setHover((prev) =>
-      prev && prev.x === snapped.x && prev.y === snapped.y ? prev : snapped,
-    );
-  };
-
-  const handlePointerLeave: React.PointerEventHandler<HTMLCanvasElement> = () => {
-    setHover(null);
-  };
-
-  const handlePointerDown: React.PointerEventHandler<HTMLCanvasElement> = (event) => {
-    event.preventDefault();
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-    const rect = canvas.getBoundingClientRect();
-    const relX = (event.clientX - rect.left) / rect.width;
-    const relY = (event.clientY - rect.top) / rect.height;
-    const boardX = clamp(relX, 0, 1) * size;
-    const boardY = clamp(1 - relY, 0, 1) * size;
-    const snapped = snapToLattice(boardX, boardY, size);
-    handlePoint(snapped);
-    setHover(null);
-  };
-
-  const handleKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (event) => {
-    if (event.key === 'Escape') {
-      clearSelection();
-      setHover(null);
-    }
-  };
-
-  return (
-    <div className="board-container" tabIndex={0} onKeyDown={handleKeyDown}>
-      <canvas
-        ref={canvasRef}
-        className="game-canvas"
-        role="button"
-        aria-label="Plane division board"
-        onPointerMove={handlePointerMove}
-        onPointerLeave={handlePointerLeave}
-        onPointerDown={handlePointerDown}
-      />
-    </div>
-  );
-}
-
-function drawBoard(
-  ctx: CanvasRenderingContext2D,
-  pixelSize: number,
-  size: number,
-  segments: RenderSegment[],
-  selected: Point | null,
-  hover: Point | null,
-  showMoveIndices: boolean,
-  intersections: Point[],
-) {
-  ctx.fillStyle = BACKGROUND_COLOR;
-  ctx.fillRect(0, 0, pixelSize, pixelSize);
-
-  drawGrid(ctx, pixelSize, size);
-  const boardCenter = boardToCanvas(
-    { x: size / 2, y: size / 2 },
-    size,
-    pixelSize,
-  );
-
-  segments.forEach((segment) => {
-    const color = PLAYER_COLORS[segment.lineIndex % PLAYER_COLORS.length];
-    drawSegment(ctx, segment, pixelSize, size, color);
-    if (showMoveIndices) {
-      drawMoveIndices(
-        ctx,
-        segment,
-        pixelSize,
-        size,
-        segment.lineIndex + 1,
-        color,
-        boardCenter,
-      );
-    }
-  });
-
-  if (showMoveIndices && intersections.length > 0) {
-    drawIntersectionMarkers(ctx, intersections, pixelSize, size);
-  }
-
-  if (selected && hover && (selected.x !== hover.x || selected.y !== hover.y)) {
-    try {
-      const line = createLineFromPoints(selected, hover);
-      const preview = clipLineToBox(line, size);
-      if (preview) {
-        drawSegment(ctx, preview, pixelSize, size, PREVIEW_COLOR, LINE_WIDTH, [6, 4]);
+    if (cell >= 9) {
+      ctx.fillStyle = '#c3c9bc';
+      for (let x = 0; x <= size; x++) for (let y = 0; y <= size; y++) {
+        const p = xy({ x, y }); ctx.beginPath(); ctx.arc(p.x, p.y, 1.25, 0, Math.PI * 2); ctx.fill();
       }
-    } catch {
-      // Ignore invalid preview directions.
     }
-  }
+    const low = xy({ x: 0, y: 0 }), high = xy({ x: size, y: size });
+    ctx.strokeStyle = '#a8b09e'; ctx.lineWidth = 1.4;
+    ctx.setLineDash(scoring === 'plane' ? [5, 5] : []);
+    ctx.strokeRect(low.x, high.y, high.x - low.x, low.y - high.y); ctx.setLineDash([]);
+    const drawLine = (segment: { a: Point; b: Point }, color: string, width: number, dashed = false) => {
+      const a = xy(segment.a), b = xy(segment.b);
+      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dashed ? [7, 6] : []);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+    };
+    const clip = (line: typeof game.lines[number]) => scoring === 'board' ? clipLineToBox(line, size) : clipToViewport(line, view);
+    game.lines.forEach((line, index) => {
+      const segment = clip(line);
+      if (!segment) return;
+      const color = COLORS[index % 2];
+      if (index === game.lines.length - 1) { ctx.globalAlpha = 0.12; drawLine(segment, color, 9); ctx.globalAlpha = 1; }
+      drawLine(segment, color, 2.2);
+      if (showLabels) {
+        const p = xy(segment.a), end = xy(segment.b);
+        const x = clamp(p.x + (end.x - p.x) * 0.035, 14, pixels - 14), y = clamp(p.y + (end.y - p.y) * 0.035, 14, pixels - 14);
+        ctx.fillStyle = '#fcfbf6'; ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = color; ctx.font = '600 11px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(index + 1), x, y);
+      }
+    });
+    if (showLabels) {
+      const hits = new Map<string, { point: Point; count: number }>();
+      for (let i = 0; i < game.lines.length; i++) for (let j = i + 1; j < game.lines.length; j++) {
+        const key = intersectionKey(game.lines[i], game.lines[j]);
+        if (!key) continue;
+        const item = hits.get(key);
+        if (item) item.count++; else hits.set(key, { point: intersectLines(game.lines[i], game.lines[j])!, count: 1 });
+      }
+      for (const { point, count } of hits.values()) if (count >= 3 && (scoring === 'plane' || (point.x >= 0 && point.x <= size && point.y >= 0 && point.y <= size))) {
+        const p = xy(point); ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fillStyle = '#263d32'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+      }
+    }
+    if (move) {
+      const segment = clip(createLineFromPoints(move.a, move.b));
+      if (segment) drawLine(segment, previewColor, 2.5, true);
+    }
+    const dot = (point: Point, color: string, r: number) => {
+      const p = xy(point); ctx.beginPath(); ctx.arc(p.x, p.y, r + 5, 0, Math.PI * 2); ctx.fillStyle = `${color}20`; ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    };
+    if (selected && interactive) dot(selected, COLORS[game.turn], 5);
+    if (cursor && interactive) dot(cursor, preview?.error ? '#b74735' : COLORS[game.turn], 4);
+    ctx.font = '10px system-ui'; ctx.fillStyle = '#7c8879'; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+    const step = Math.max(1, Math.ceil(25 / cell));
+    for (let n = 0; n <= size; n += step) {
+      const p = xy({ x: n, y: 0 }); ctx.fillText(String(n), p.x, p.y + 8);
+    }
+  }, [game, size, scoring, pixels, view, polygons, selected, cursor, interactive, move, previewColor, preview?.error, showLabels]);
 
-  if (hover) {
-    drawHandle(ctx, hover, pixelSize, size, '#34495e');
-  }
-  if (selected) {
-    drawHandle(ctx, selected, pixelSize, size, SELECTION_COLOR, 6);
-  }
-}
+  const pointerPoint = (event: PointerEvent<HTMLCanvasElement>): Point | null => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const world = canvasToWorld({ x: (event.clientX - rect.left) / rect.width, y: (event.clientY - rect.top) / rect.height }, view, 1);
+    const tolerance = Math.min(0.45, view.size * 12 / pixels);
+    if (world.x < -tolerance || world.x > size + tolerance || world.y < -tolerance || world.y > size + tolerance) return null;
+    return snapToLattice(world.x, world.y, size);
+  };
+  const choose = (point: Point) => {
+    if (!interactive) return;
+    if (activeDirection) {
+      const proposed = moveFromAnchor(point, activeDirection, size);
+      if (proposed) playMove(proposed);
+    } else handlePoint(point);
+    if (useGameStore.getState().game !== game) { setHover(null); setKeyboardActive(false); }
+  };
+  const keyDown = (event: KeyboardEvent<HTMLCanvasElement>) => {
+    if (event.key === 'Escape') { event.preventDefault(); clearSelection(); setHover(null); setKeyboardActive(false); return; }
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      event.preventDefault(); setKeyboardActive(true); setHover(null);
+      setKeyboardPoint((p) => ({ x: clamp(p.x + (event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0), 0, size), y: clamp(p.y + (event.key === 'ArrowUp' ? 1 : event.key === 'ArrowDown' ? -1 : 0), 0, size) }));
+    } else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setKeyboardActive(true); choose(keyboardPoint); }
+  };
+  let feedback = game.status === 'finished' ? 'Game finished. Explore the board or start a new game.' : thinking ? 'Computer is finding its next cut…' : !interactive ? 'Computer turn.' : selected ? 'Choose a second point. Escape cancels.' : activeDirection ? 'Choose a lattice point to cut in this direction.' : 'Choose a point, then a second. Your line extends across the board.';
+  if (preview?.error) feedback = preview.error.message;
+  else if (preview) feedback = `+${preview.state.rooms - game.rooms} room${preview.state.rooms - game.rooms === 1 ? '' : 's'} → ${preview.state.rooms} total${wins ? ' · This move wins!' : dangerous ? ' · This move loses!' : preview.state.endReason === 'capacity' ? ' · This move draws.' : ''}`;
+  else if (message) feedback = message;
+  else if (interactive && activeDirection && cursor && !move) feedback = 'This direction needs a second lattice point inside the square. Try another anchor.';
+  const feedbackError = preview ? Boolean(preview.error) : Boolean(message);
 
-function drawGrid(ctx: CanvasRenderingContext2D, pixelSize: number, size: number) {
-  const cell = pixelSize / size;
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = GRID_COLOR;
-  ctx.beginPath();
-  for (let i = 0; i <= size; i += 1) {
-    const x = i * cell;
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, pixelSize);
-  }
-  ctx.stroke();
-
-  ctx.strokeStyle = GRID_COLOR;
-  ctx.beginPath();
-  for (let j = 0; j <= size; j += 1) {
-    const y = pixelSize - j * cell;
-    ctx.moveTo(0, y);
-    ctx.lineTo(pixelSize, y);
-  }
-  ctx.stroke();
-
-  ctx.strokeStyle = AXIS_COLOR;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(0, pixelSize);
-  ctx.lineTo(pixelSize, pixelSize);
-  ctx.moveTo(0, 0);
-  ctx.lineTo(0, pixelSize);
-  ctx.stroke();
-}
-
-function drawSegment(
-  ctx: CanvasRenderingContext2D,
-  segment: { a: Point; b: Point },
-  pixelSize: number,
-  size: number,
-  color: string,
-  width = LINE_WIDTH,
-  dash: number[] = [],
-) {
-  const start = boardToCanvas(segment.a, size, pixelSize);
-  const end = boardToCanvas(segment.b, size, pixelSize);
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = width;
-  ctx.setLineDash(dash);
-  ctx.beginPath();
-  ctx.moveTo(start.x, start.y);
-  ctx.lineTo(end.x, end.y);
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawHandle(
-  ctx: CanvasRenderingContext2D,
-  point: Point,
-  pixelSize: number,
-  size: number,
-  color: string,
-  radius = 4,
-) {
-  const canvasPoint = boardToCanvas(point, size, pixelSize);
-  ctx.save();
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.arc(canvasPoint.x, canvasPoint.y, radius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawMoveIndices(
-  ctx: CanvasRenderingContext2D,
-  segment: RenderSegment,
-  pixelSize: number,
-  size: number,
-  labelNumber: number,
-  color: string,
-  boardCenter: { x: number; y: number },
-) {
-  const label = String(labelNumber);
-  drawMoveIndexLabel(ctx, segment.a, boardCenter, pixelSize, size, label, color);
-  drawMoveIndexLabel(ctx, segment.b, boardCenter, pixelSize, size, label, color);
-}
-
-function drawMoveIndexLabel(
-  ctx: CanvasRenderingContext2D,
-  point: Point,
-  center: { x: number; y: number },
-  pixelSize: number,
-  size: number,
-  label: string,
-  color: string,
-) {
-  const canvasPoint = boardToCanvas(point, size, pixelSize);
-  let dirX = canvasPoint.x - center.x;
-  let dirY = canvasPoint.y - center.y;
-  const magnitude = Math.hypot(dirX, dirY) || 1;
-  dirX /= magnitude;
-  dirY /= magnitude;
-  const targetX = canvasPoint.x + dirX * LABEL_OFFSET;
-  const targetY = canvasPoint.y + dirY * LABEL_OFFSET;
-  const clampedX = clamp(targetX, LABEL_MARGIN, pixelSize - LABEL_MARGIN);
-  const clampedY = clamp(targetY, LABEL_MARGIN, pixelSize - LABEL_MARGIN);
-  const fontSize = Math.max(12, Math.min(16, pixelSize / 40));
-  ctx.save();
-  ctx.font = `600 ${fontSize}px ${LABEL_FONT_FALLBACK}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = LABEL_STROKE;
-  ctx.strokeText(label, clampedX, clampedY);
-  ctx.fillStyle = color;
-  ctx.fillText(label, clampedX, clampedY);
-  ctx.restore();
-}
-
-function drawIntersectionMarkers(
-  ctx: CanvasRenderingContext2D,
-  points: Point[],
-  pixelSize: number,
-  size: number,
-) {
-  ctx.save();
-  ctx.fillStyle = INTERSECTION_COLOR;
-  ctx.strokeStyle = INTERSECTION_STROKE;
-  ctx.lineWidth = 2;
-  for (const point of points) {
-    const canvasPoint = boardToCanvas(point, size, pixelSize);
-    ctx.beginPath();
-    ctx.arc(canvasPoint.x, canvasPoint.y, INTERSECTION_RADIUS, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  }
-  ctx.restore();
+  return <section className="board-section" aria-label="Game board">
+    <div className="board-toolbar"><div className="board-title"><span className={`turn-dot player-${game.turn}`} /><strong>{scoring === 'plane' ? 'The whole plane' : 'Your playing field'}</strong></div><div className="view-controls" aria-label="Board view">{scoring === 'plane' ? <><button className={viewMode === 'board' ? 'active' : ''} aria-pressed={viewMode === 'board'} onClick={() => setViewMode('board')}>Board</button><button className={viewMode === 'fit' ? 'active' : ''} aria-pressed={viewMode === 'fit'} onClick={() => setViewMode('fit')}>Fit all ↗</button></> : <span>{size} × {size} GRID</span>}</div></div>
+    <div className="board-frame" ref={frameRef}><canvas ref={canvasRef} className="game-canvas" tabIndex={0} role="application" aria-label={`Plane division board, ${game.rooms} rooms. Player ${game.turn + 1}.`} aria-describedby="board-instructions board-feedback" onKeyDown={keyDown} onFocus={() => setKeyboardActive(true)} onBlur={() => setKeyboardActive(false)}
+      onPointerMove={(e) => { if (e.pointerType !== 'touch') { setKeyboardActive(false); setHover(pointerPoint(e)); } }} onPointerLeave={() => setHover(null)}
+      onPointerDown={(e) => { if (e.button !== 0) return; press.current = { x: e.clientX, y: e.clientY }; if (e.pointerType === 'mouse') e.currentTarget.focus({ preventScroll: true }); }}
+      onPointerCancel={() => { press.current = null; }} onPointerUp={(e) => {
+        const start = press.current; press.current = null;
+        if (!start || Math.hypot(start.x - e.clientX, start.y - e.clientY) > 12) return;
+        const point = pointerPoint(e); if (point) { setKeyboardPoint(point); choose(point); } setHover(null); setKeyboardActive(false);
+      }} /></div>
+    <div id="board-feedback" className={`board-feedback${feedbackError ? ' error' : dangerous ? ' warning' : wins ? ' winning' : ''}`} role="status" aria-live="polite"><span className={thinking ? 'thinking-dot' : ''} aria-hidden="true">{thinking ? '◌' : feedbackError ? '!' : wins ? '★' : '↗'}</span><span>{feedback}</span>{selected && <button className="text-button" onClick={clearSelection}>Cancel</button>}</div>
+    <div className="drawing-tools"><span className="tool-label">DRAW WITH</span><div className="direction-buttons" role="group" aria-label="Drawing method"><button className={!activeDirection ? 'active' : ''} aria-pressed={!activeDirection} onClick={() => { setDirection(null); clearSelection(); }}>Two points</button>{game.config.directions.map((d) => {
+      const key = directionKey(d), cap = game.config.capacities?.[key] ?? Infinity;
+      return <button key={key} title={directionLabel(d)} aria-label={`Draw ${directionLabel(d)}`} aria-pressed={direction === key} disabled={directionUsage(game, d) >= cap} className={direction === key ? 'active' : ''} onClick={() => { setDirection(key); clearSelection(); }}><DirectionIcon direction={d} /></button>;
+    })}</div><div className="display-options"><label><input type="checkbox" checked={showRegions} onChange={(e) => setRegions(e.target.checked)} />Room tint</label><label><input type="checkbox" checked={showLabels} onChange={(e) => setLabels(e.target.checked)} />Labels</label></div></div>
+    <p className="board-footnote" id="board-instructions">{scoring === 'plane' ? `All regions count, including off-screen ones. ${viewMode === 'fit' ? 'Auto-fit shows every intersection.' : 'Board view is for precise input.'} The dashed square is the input area.` : 'Only rooms inside the square count.'}<span>Arrows to move · Enter to select · Esc to cancel</span></p>
+    <span className="sr-only" aria-live="polite">{keyboardActive ? `Cursor: ${keyboardPoint.x}, ${keyboardPoint.y}` : ''}</span>
+  </section>;
 }

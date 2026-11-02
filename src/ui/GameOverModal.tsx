@@ -1,60 +1,15 @@
-import type { MouseEventHandler } from 'react';
-import type { PlayerIndex } from '../core/types';
+import type { GameState } from '../core';
+import { Modal } from './Modal';
 
-interface GameOverModalProps {
-  open: boolean;
-  loser: PlayerIndex | null;
-  rooms: number;
-  target: number;
-  onRestart(): void;
-  onClose(): void;
-}
-
-export function GameOverModal({ open, loser, rooms, target, onRestart, onClose }: GameOverModalProps) {
-  if (!open) {
-    return null;
-  }
-
-  const handleBackdropClick: MouseEventHandler<HTMLDivElement> = (event) => {
-    if (event.target === event.currentTarget) {
-      onClose();
-    }
-  };
-
-  const loserLabel = loser !== null ? `Player ${loser + 1}` : 'The active player';
-  const winnerLabel = loser !== null ? `Player ${loser === 0 ? 2 : 1}` : 'The opponent';
-
-  return (
-    <div className="modal-backdrop" role="presentation" onClick={handleBackdropClick}>
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="gameover-modal-title"
-        aria-describedby="gameover-modal-content"
-      >
-        <header className="modal-header">
-          <h2 id="gameover-modal-title">Game Over</h2>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close game over dialog">
-            ×
-          </button>
-        </header>
-        <section id="gameover-modal-content" className="modal-body">
-          <p>{loserLabel} exceeded the room limit.</p>
-          <p>
-            Room count: <strong>{rooms}</strong> / <strong>{target}</strong>
-          </p>
-          {loser !== null ? <p>{winnerLabel} wins the match.</p> : null}
-        </section>
-        <footer className="modal-footer">
-          <button type="button" className="secondary" onClick={onClose}>
-            Close
-          </button>
-          <button type="button" className="primary" onClick={onRestart}>
-            Play again
-          </button>
-        </footer>
-      </div>
-    </div>
-  );
+export function GameOverModal({ open, game, onClose, onRestart, onSettings }: {
+  open: boolean; game: GameState; onClose(): void; onRestart(): void; onSettings(): void;
+}) {
+  const draw = game.winner === null;
+  return <Modal open={open} title={draw ? 'A game well drawn.' : `Player ${game.winner! + 1} wins!`} onClose={onClose}>
+    <div className="modal-body result-body"><div className="result-score">{game.rooms}<span> / {game.config.targetRooms} rooms</span></div>
+      <p>{game.endReason === 'capacity' ? 'All direction capacities were used before the target was reached. It’s a draw.' : game.endReason === 'no_moves' ? 'No legal lattice lines remain below the target. It’s a draw.' : game.config.rule === 'race' ? `Player ${game.winner! + 1} reached the target first.` : `Player ${game.loser! + 1} reached or exceeded the target.`}</p>
+      <p className="muted">{game.moveNumber} move{game.moveNumber === 1 ? '' : 's'} · {game.config.rule === 'race' ? 'Race' : 'Avoidance'} · {game.config.scoring === 'plane' ? 'Whole plane' : 'Board only'}</p>
+      <button className="text-button" onClick={onClose}>Keep exploring the final board ↗</button>
+    </div><footer className="modal-footer"><button className="secondary" onClick={onSettings}>Change rules</button><button className="primary" onClick={onRestart}>Play again ↗</button></footer>
+  </Modal>;
 }

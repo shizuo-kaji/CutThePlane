@@ -1,10 +1,33 @@
-import type { Line } from './types';
-import { clipLineToBox } from '../geom/clipping';
+import type { GameConfig, Line } from './types';
+import { clipLineToBox, lineMatchesBoundary } from '../geom/clipping';
 import type { Segment } from '../geom/segment';
 import { pointOnSegment, segmentLength } from '../geom/segment';
-import { intersectSegments } from '../geom/intersections';
+import { intersectSegments, intersectLines, intersectionKey } from '../geom/intersections';
+import { lineKey } from '../geom/lines';
 
 const EPS = 1e-9;
+
+/** A new line adds one room plus one per distinct crossing in the scoring domain. */
+export function addedRooms(config: Pick<GameConfig, 'size' | 'scoring'>, lines: Line[], line: Line): number {
+  if (lines.some((other) => lineKey(other) === lineKey(line))) return 0;
+  if (config.scoring === 'board' && lineMatchesBoundary(line, config.size)) return 0;
+  const crossings = new Set<string>();
+  for (const other of lines) {
+    const key = intersectionKey(line, other);
+    if (key === null) continue;
+    if (config.scoring === 'board') {
+      const point = intersectLines(line, other)!;
+      // Boundary crossings do not divide the new segment into additional pieces.
+      if (point.x <= EPS || point.y <= EPS || point.x >= config.size - EPS || point.y >= config.size - EPS) continue;
+    }
+    crossings.add(key);
+  }
+  return 1 + crossings.size;
+}
+
+export function countPlaneRooms(lines: Line[]): number {
+  return lines.reduce((rooms, line, index) => rooms + addedRooms({ size: 0, scoring: 'plane' }, lines.slice(0, index), line), 1);
+}
 
 interface IndexedPoint {
   id: number;
