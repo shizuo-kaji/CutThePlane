@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import type { AiLevel } from '../ai/levels';
+import { AiLevelSelect } from './AiLevelSelect';
 import type { FormEvent } from 'react';
 import { canonicalDirections, createInitialState, DEFAULT_DIRECTIONS, directionKey } from '../core';
 import type { Direction, GameConfig } from '../core';
@@ -16,9 +18,11 @@ const PRESETS: { name: string; label: string; detail: string; patch: Partial<Gam
 export function Controls({ onClose }: { onClose(): void }) {
   const game = useGameStore((s) => s.game);
   const currentPlayers = useGameStore((s) => s.aiPlayers);
+  const currentLevels = useGameStore((s) => s.aiLevels);
   const start = useGameStore((s) => s.startNewGame);
   const [draft, setDraft] = useState<GameConfig>({ ...game.config });
   const [players, setPlayers] = useState<[boolean, boolean]>([...currentPlayers]);
+  const [levels, setLevels] = useState<[AiLevel, AiLevel]>([...currentLevels]);
   const originalDirections = game.config.directions.map(directionKey).join(';');
   const [custom, setCustom] = useState(![DEFAULT_DIRECTIONS, DEFAULT_DIRECTIONS.slice(0, 2)].some((dirs) => dirs.map(directionKey).join(';') === originalDirections));
   const [directionText, setDirectionText] = useState(game.config.directions.map(directionKey).join('; '));
@@ -42,7 +46,7 @@ export function Controls({ onClose }: { onClose(): void }) {
       }
       const config = { ...draft, directions, capacities: draft.capacities ? Object.fromEntries(directions.map((d) => [directionKey(d), draft.capacities?.[directionKey(d)] ?? 3])) : null };
       createInitialState(config);
-      start(config, players);
+      start(config, players, levels);
       onClose();
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Please check the settings.'); }
   };
@@ -78,7 +82,10 @@ export function Controls({ onClose }: { onClose(): void }) {
           }} placeholder="1,0; 0,1; 1,1; 1,-1" /><span className="field-note">Up to 8 integer directions. New custom directions start with capacity 3 when limits are enabled.</span></label>}
           {draft.capacities && <div className="capacity-inputs">{draft.directions.map((d) => <label key={directionKey(d)}><span><DirectionIcon direction={d} /><span>{directionLabel(d)}</span></span><input aria-label={`Capacity: ${directionLabel(d)}`} type="number" min="0" max="1000" required value={Number.isNaN(draft.capacities?.[directionKey(d)]) ? '' : draft.capacities?.[directionKey(d)] ?? 3} onChange={(e) => update({ capacities: { ...draft.capacities, [directionKey(d)]: e.target.valueAsNumber } })} /></label>)}</div>}
           <p className="field-note">Capacities are shared by both players. If all lines are used below the target, the game is a draw.</p></fieldset>
-          <fieldset className="full-width"><legend>06 · Players</legend><div className="input-row">{([0, 1] as const).map((p) => <label key={p}>Player {p + 1}<select value={players[p] ? 'computer' : 'human'} onChange={(e) => { const next = [...players] as [boolean, boolean]; next[p] = e.target.value === 'computer'; setPlayers(next); }}><option value="human">Human</option><option value="computer">Computer</option></select></label>)}</div></fieldset>
+          <fieldset className="full-width"><legend>06 · Players</legend><div className="input-row player-setup-row">{([0, 1] as const).map((p) => <div className="player-setup" key={p}>
+            <label>Player {p + 1}<select value={players[p] ? 'computer' : 'human'} onChange={(e) => { const next = [...players] as [boolean, boolean]; next[p] = e.target.value === 'computer'; setPlayers(next); }}><option value="human">Human</option><option value="computer">Computer</option></select></label>
+            {players[p] && <AiLevelSelect player={p} value={levels[p]} onChange={(level) => { const next = [...levels] as [AiLevel, AiLevel]; next[p] = level; setLevels(next); }} />}
+          </div>)}</div></fieldset>
         </div>
         <p className="field-note">Choose drawing points inside the original square in every mode. Whole-plane mode zooms out to show off-board intersections. If no allowed cut remains below the target, the game is a draw, even if some capacity is left.</p>
         {error && <p className="form-error" role="alert">{error}</p>}

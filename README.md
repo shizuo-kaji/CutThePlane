@@ -15,7 +15,7 @@ The game opens with **Classic board** rules: two human players, a target of **20
 
 The empty board is one room. Two parallel cuts make three rooms; two cuts crossing inside the board make four. Both players contribute to the same room total.
 
-To play alone, change either player's control from **Human** to **Computer**. To change the target or try another set of rules, open **New game**.
+To play alone, change either player's control from **Human** to **Computer**, then choose a level. To change the target or try another set of rules, open **New game**.
 
 ## Drawing and changing your mind
 
@@ -77,6 +77,7 @@ For other slopes, choose **Custom directions**. Enter up to eight pairs such as 
 | --- | --- |
 | **New game / Change** | Opens the settings menu. **Start game** replaces the current match; **Cancel** keeps it. |
 | **Human / Computer** | Chooses who controls each player. Set both to Computer to watch a match. |
+| **Level** | Sets Easy, Standard, or Hard separately for each computer player. You can change it during a match. |
 | **Two points / direction buttons** | Switches between selecting two points and making a cut with one point in a chosen direction. |
 | **Board / Fit all** | Changes the view in whole-plane mode without changing the score. |
 | **Room tint / Labels** | Shows or hides room shading and move/intersection markers. |
@@ -89,7 +90,17 @@ For other slopes, choose **Custom directions**. Enter up to eight pairs such as 
 
 ## Playing with the computer
 
-The computer follows the same rules as a human and can play either side. It is a practice opponent and can make mistakes. Opening settings or Help pauses computer play; closing the menu resumes it.
+Choose **Computer** for either player, then select a level in that player's card or in **New game**. The two computers can use different levels.
+
+| Level | What to expect |
+| --- | --- |
+| **Easy** | Plays by instinct. Notices an immediate win and avoids immediately losing cuts, but can miss what you are planning. |
+| **Standard** | Looks ahead and compares your possible replies. A good starting opponent. |
+| **Hard** | Considers more continuations and plays small endgames precisely when it can finish reading them. |
+
+The computer varies its openings and its choice among similarly promising cuts. It favors clear placements with some space between parallel lines, while a stronger tactical reason can lead it elsewhere. All levels follow the same rules and see the same board; they differ in how far they look ahead and how narrowly they choose among promising moves.
+
+You can change the level during a match without resetting the board. Opening settings or Help pauses computer play; closing the menu resumes it. Hard may think a little longer. These are practice opponents, not a guarantee of perfect play.
 
 Games are played on one device. Online multiplayer and saved matches are not available, so reloading or closing the page ends the current session.
 
@@ -106,10 +117,6 @@ $$
 This formula counts the entire plane. Board-only scores can be smaller because some intersections and rooms lie outside the square.
 
 The preprint cited below studies the simple whole-plane game with arbitrary line offsets, under both Avoidance and Race. This browser game selects lines through pairs of grid points in a fixed square. Its available lines are therefore finite, and running out of legal cuts is an additional draw condition. The browser's capacity and multiple-intersection options provide further variations to explore.
-
-## Development
-
-The app uses React, TypeScript, Vite, and Zustand. [Source repository](https://github.com/shizuo-kaji/CutThePlane).
 
 ### Run locally
 
@@ -136,8 +143,9 @@ Open the local address printed by Vite.
 - **Geometry:** [`src/geom`](src/geom) normalizes directions, identifies duplicate lines, and computes intersections. The UI describes a line by a vector along it; the paper describes it by a normal vector. For a UI direction `(dx, dy)`, one corresponding normal is `(-dy, dx)`.
 - **Counting:** [`src/core/counting.ts`](src/core/counting.ts) uses the insertion formula above, restricting crossings to the square's interior for board scoring. Exact integer intersection keys identify repeated crossings. The original Euler-characteristic counter is retained as an independent check in the tests.
 - **Display:** [`src/ui/GameBoard.tsx`](src/ui/GameBoard.tsx) handles the canvas, previews, keyboard input, and automatic view fitting. View bounds and room shading do not determine the score.
-- **Computer:** [`src/ai/greedy.ts`](src/ai/greedy.ts) uses a bounded alpha-beta search over legal cuts. [`src/ai/worker.ts`](src/ai/worker.ts) runs it in a cancellable Web Worker; returned moves are checked again before being played.
-- **Tests:** [`src/core/__tests__`](src/core/__tests__) covers room counts, rule variations, off-board triple points, capacities, draws, view fitting, and computer decisions.
+- **Computer:** [`src/ai/search.ts`](src/ai/search.ts) combines immediate tactical checks with Monte Carlo tree search, guided playouts, and a bounded exact solver for small Hard endgames. Candidate selection preserves different directions and room increases. Position and spacing preferences vary choices among similarly valued moves. [`src/ai/position.ts`](src/ai/position.ts) caches geometry for simulations; differential tests check it against the game rules. [`src/ai/levels.ts`](src/ai/levels.ts) defines the levels and search budgets.
+- **Computer turns:** [`src/ai/worker.ts`](src/ai/worker.ts) runs search outside the UI thread. Changing the game, control type, or level cancels obsolete work; a request revision also rejects stale replies. Every returned cut is revalidated by the game rules before play.
+- **Tests:** [`src/core/__tests__`](src/core/__tests__) covers room counts, rule variations, off-board triple points, capacities, draws, view fitting, and computer decisions. [`src/ai/__tests__`](src/ai/__tests__) additionally checks varied openings, exhaustive small-endgame outcomes, level changes, and simulation consistency across rule combinations.
 
 ### Deployment
 

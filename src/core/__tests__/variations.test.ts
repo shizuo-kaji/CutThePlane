@@ -3,7 +3,7 @@ import { addedRooms, applyMove, candidateMoves, countPlaneRooms, countRooms, cre
 import type { GameState, Line, Move } from '../types';
 import { createLineFromPoints, intersectLines } from '../../geom';
 import { fitViewport, roomPolygons, worldToCanvas, canvasToWorld } from '../../ui/boardMath';
-import { chooseBestMove } from '../../ai/greedy';
+import { chooseMove } from '../../ai/search';
 import { useGameStore } from '../../hooks/useGameStore';
 
 const move = (x: number, y: number, X: number, Y: number): Move => ({ a: { x, y }, b: { x: X, y: Y } });
@@ -81,7 +81,7 @@ describe('rule variants', () => {
     let state = createInitialState({ size: 2, directions: orthogonal, targetRooms: 99 });
     state = put(state, move(0, 1, 2, 1)); state = put(state, move(1, 0, 1, 2));
     expect(state).toMatchObject({ status: 'finished', endReason: 'no_moves', winner: null, loser: null });
-    expect(hasLegalMove(state)).toBe(false); expect(chooseBestMove(state)).toBeNull();
+    expect(hasLegalMove(state)).toBe(false); expect(chooseMove(state, 'normal', { seed: 4, maxIterations: 60, timeMs: 3000 })).toBeNull();
   });
   it('validates target, size, and direction input', () => {
     expect(() => createInitialState({ targetRooms: 1 })).toThrow();
@@ -128,19 +128,19 @@ describe('computer and UI state', () => {
   it('takes an immediate race win instead of pruning it out', () => {
     let state = createInitialState({ size: 4, targetRooms: 4, rule: 'race', directions: orthogonal });
     state = put(state, move(0, 2, 4, 2));
-    const choice = chooseBestMove(state)!;
+    const choice = chooseMove(state, 'normal', { seed: 4, maxIterations: 60, timeMs: 3000 })!;
     expect(choice.nextState.winner).toBe(state.turn);
   });
   it('avoids a losing threshold crossing when a safe move is available', () => {
     let state = createInitialState({ size: 4, targetRooms: 4, rule: 'avoidance', directions: orthogonal });
     state = put(state, move(0, 2, 4, 2));
-    expect(chooseBestMove(state)!.nextState.rooms).toBe(3);
+    expect(chooseMove(state, 'normal', { seed: 4, maxIterations: 60, timeMs: 3000 })!.nextState.rooms).toBe(3);
   });
   it('obeys simple intersections and capacity constraints in computer matches', () => {
     for (const rule of ['avoidance', 'race'] as const) {
       let state = createInitialState({ size: 4, rule, scoring: 'plane', targetRooms: 30, allowTriplePoints: false, capacities: { '1,0': 1, '0,1': 2, '1,1': 1, '1,-1': 1 } });
       for (let n = 0; n < 6 && state.status === 'playing'; n++) {
-        const decision = chooseBestMove(state, 2);
+        const decision = chooseMove(state, 'normal', { seed: 4, maxIterations: 60, timeMs: 3000 });
         expect(decision).not.toBeNull(); state = put(state, decision!.move);
         for (const d of state.config.directions) expect(directionUsage(state, d)).toBeLessThanOrEqual(state.config.capacities![directionKey(d)]);
       }
@@ -151,7 +151,7 @@ describe('computer and UI state', () => {
     const store = useGameStore.getState(); store.startNewGame(createInitialState().config, [true, false]);
     const old = useGameStore.getState().game;
     store.startNewGame(); const current = useGameStore.getState().game;
-    store.acceptAiMove(old, move(0, 1, 11, 1)); expect(useGameStore.getState().game).toBe(current);
+    store.acceptAiMove(old, move(0, 1, 11, 1), useGameStore.getState().aiRevision); expect(useGameStore.getState().game).toBe(current);
   });
   it('keeps the selected anchor after an illegal move without consuming a turn', () => {
     const store = useGameStore.getState(); store.startNewGame(createInitialState().config, [false, false]);

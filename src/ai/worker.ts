@@ -1,9 +1,12 @@
 import type { GameState } from '../core';
-import { chooseBestMove } from './greedy';
+import { chooseMove } from './search';
+import type { AiLevel } from './levels';
 
-self.onmessage = (event: MessageEvent<GameState>) => {
+export interface AiRequest { game: GameState; level: AiLevel }
+
+self.onmessage = (event: MessageEvent<AiRequest>) => {
   try {
-    self.postMessage({ move: chooseBestMove(event.data)?.move ?? null });
+    self.postMessage({ move: chooseMove(event.data.game, event.data.level)?.move ?? null });
   } catch {
     self.postMessage({ error: 'The computer could not finish this turn. You can play it yourself.' });
   }

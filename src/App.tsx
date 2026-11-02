@@ -15,6 +15,7 @@ function App() {
   const round = useGameStore((s) => s.round);
   const ai1 = useGameStore((s) => s.aiPlayers[0]);
   const ai2 = useGameStore((s) => s.aiPlayers[1]);
+  const aiRevision = useGameStore((s) => s.aiRevision);
   const start = useGameStore((s) => s.startNewGame);
   useEffect(() => {
     const store = useGameStore.getState();
@@ -23,7 +24,7 @@ function App() {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     let active = true;
     store.setThinking(true);
-    const fail = () => { if (active) store.failAi(game, 'The computer could not finish this turn. You can play it yourself.'); };
+    const fail = () => { if (active) store.failAi(game, 'The computer could not finish this turn. You can play it yourself.', aiRevision); };
     // Give turn changes time to paint, and make computer-vs-computer play readable.
     const timer = setTimeout(() => {
       try {
@@ -32,16 +33,16 @@ function App() {
           clearTimeout(timeout);
           worker?.terminate();
           if (!active) return;
-          if (event.data.error) store.failAi(game, event.data.error);
-          else store.acceptAiMove(game, event.data.move);
+          if (event.data.error) store.failAi(game, event.data.error, aiRevision);
+          else store.acceptAiMove(game, event.data.move, aiRevision);
         };
         worker.onerror = fail;
         timeout = setTimeout(() => { worker?.terminate(); fail(); }, 10000);
-        worker.postMessage(game);
+        worker.postMessage({ game, level: store.aiLevels[game.turn] });
       } catch { fail(); }
     }, 450);
     return () => { active = false; clearTimeout(timer); clearTimeout(timeout); worker?.terminate(); };
-  }, [game, ai1, ai2, menu]);
+  }, [game, ai1, ai2, aiRevision, menu]);
   const resultOpen = game.status === 'finished' && dismissedResult !== game && menu === null;
   return <div className="app">
     <header className="app-header"><div className="brand"><span className="brand-mark" aria-hidden="true"><i /><i /><i /></span><span>Cut the Plane<span className="brand-period">.</span><small>A GAME OF LINES & LIMITS</small></span></div><nav aria-label="Main menu"><button className="text-button help-button" onClick={() => setMenu('help')}>How to play <span className="help-circle">?</span></button><button className="primary" onClick={() => setMenu('settings')}>New game <span aria-hidden="true">↗</span></button></nav></header>

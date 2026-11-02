@@ -1,3 +1,4 @@
+import { AiLevelSelect } from './AiLevelSelect';
 import { directionKey, directionUsage } from '../core';
 import { useGameStore } from '../hooks/useGameStore';
 import { DirectionIcon, directionLabel } from './DirectionIcon';
@@ -5,6 +6,8 @@ import { DirectionIcon, directionLabel } from './DirectionIcon';
 export function Hud({ onSettings }: { onSettings(): void }) {
   const game = useGameStore((s) => s.game);
   const aiPlayers = useGameStore((s) => s.aiPlayers);
+  const aiLevels = useGameStore((s) => s.aiLevels);
+  const setAiLevel = useGameStore((s) => s.setAiLevel);
   const thinking = useGameStore((s) => s.aiThinking);
   const setAiPlayer = useGameStore((s) => s.setAiPlayer);
   const { config } = game;
@@ -21,7 +24,9 @@ export function Hud({ onSettings }: { onSettings(): void }) {
       <div className="section-kicker"><span aria-live="polite">{status}</span><span>MOVE {game.moveNumber}</span></div>
       <div className="player-panel">{([0, 1] as const).map((player) => <div key={player} className={`player-card player-${player}${game.status === 'playing' && game.turn === player ? ' is-current' : ''}`}>
         <div className="player-name"><span className="player-dot" />Player {player + 1}{game.winner === player && <span aria-label="Winner">★</span>}</div>
-        <select aria-label={`Player ${player + 1} control`} value={aiPlayers[player] ? 'computer' : 'human'} onChange={(e) => setAiPlayer(player, e.target.value === 'computer')}><option value="human">Human</option><option value="computer">Computer</option></select>
+        <div className="player-settings"><select aria-label={`Player ${player + 1} control`} value={aiPlayers[player] ? 'computer' : 'human'} onChange={(e) => setAiPlayer(player, e.target.value === 'computer')}><option value="human">Human</option><option value="computer">Computer</option></select>
+        {aiPlayers[player] && <AiLevelSelect player={player} value={aiLevels[player]} onChange={(level) => setAiLevel(player, level)} compact />}
+        </div>
       </div>)}</div>
     </section>
     <section className="rules-panel" aria-label="Current rules">
